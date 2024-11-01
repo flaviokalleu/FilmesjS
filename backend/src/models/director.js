@@ -1,4 +1,3 @@
-// models/director.js
 module.exports = (sequelize, DataTypes) => {
   const Director = sequelize.define('Director', {
     tmdb_director_id: {
@@ -13,6 +12,11 @@ module.exports = (sequelize, DataTypes) => {
   Director.associate = function(models) {
     Director.belongsToMany(models.Movie, {
       through: 'MovieDirector',
+      foreignKey: 'director_id'
+    });
+
+    Director.belongsToMany(models.TVShow, {
+      through: 'TVShowDirector',
       foreignKey: 'director_id'
     });
   };

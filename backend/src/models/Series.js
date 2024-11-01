@@ -63,6 +63,10 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING,
             allowNull: true,
         },
+        logo_path: {  // Adicionando a coluna para o logo
+            type: DataTypes.STRING,
+            allowNull: true,
+        },
     }, {
         timestamps: true,
     });

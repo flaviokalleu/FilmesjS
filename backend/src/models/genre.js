@@ -1,4 +1,3 @@
-// genre.js
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize, DataTypes) => {
@@ -18,8 +17,15 @@ module.exports = (sequelize, DataTypes) => {
 
   // Associações
   Genre.associate = (models) => {
+    Genre.belongsToMany(models.Movie, {
+      through: 'MovieGenres', // Nome da tabela intermediária para filmes
+      foreignKey: 'genre_id', // Chave estrangeira para 'Genre'
+      otherKey: 'movie_id',   // Chave estrangeira para 'Movie'
+      as: 'movies', // Nome do relacionamento
+    });
+
     Genre.belongsToMany(models.TVShow, {
-      through: 'TVShowGenres', // Nome da tabela intermediária
+      through: 'TVShowGenres', // Nome da tabela intermediária para séries
       foreignKey: 'genre_id', // Chave estrangeira para 'Genre'
       otherKey: 'tvshow_id',   // Chave estrangeira para 'TVShow'
       as: 'tvshows', // Nome do relacionamento

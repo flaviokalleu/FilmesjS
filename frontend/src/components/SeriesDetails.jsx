@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { Star, CalendarToday } from '@mui/icons-material';
-import { FaPlay } from 'react-icons/fa';
-import { motion } from 'framer-motion'; // Importa framer-motion para animações
+import { motion } from 'framer-motion';
+import { FaPlay, FaHeart, FaLink } from 'react-icons/fa';
 
 const SeriesDetails = () => {
   const { tmdb_id } = useParams();
   const [series, setSeries] = useState(null);
-  const [recommendedSeries, setRecommendedSeries] = useState([]);
-  const [cast, setCast] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [seasons, setSeasons] = useState([]);
+  const [episodesBySeason, setEpisodesBySeason] = useState({});
 
   useEffect(() => {
     const fetchSeriesDetails = async () => {
@@ -17,131 +17,123 @@ const SeriesDetails = () => {
         const seriesResponse = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/series/tmdb/${tmdb_id}`);
         setSeries(seriesResponse.data);
 
-        const castResponse = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/series/${tmdb_id}/cast`);
-        setCast(castResponse.data);
+        const seasonsResponse = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/series/seasons/${tmdb_id}`);
+        setSeasons(seasonsResponse.data);
 
-        const recommendedResponse = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/series/${tmdb_id}/recommended`);
-        setRecommendedSeries(recommendedResponse.data);
-        
+        const episodesPromises = seasonsResponse.data.map(season =>
+          axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/series/seasons/${season.id}/episodes`)
+            .then(response => ({ seasonId: season.id, episodes: response.data }))
+        );
+
+        const episodesResults = await Promise.all(episodesPromises);
+        const episodesMap = episodesResults.reduce((acc, { seasonId, episodes }) => {
+          acc[seasonId] = episodes;
+          return acc;
+        }, {});
+
+        setEpisodesBySeason(episodesMap);
       } catch (error) {
         console.error('Erro ao buscar detalhes da série:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchSeriesDetails();
   }, [tmdb_id]);
 
-  if (!series) return (
-    <div className="flex justify-center items-center h-screen bg-gray-900 text-white text-lg">
-      <p>Carregando...</p>
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gradient-to-r from-black to-gray-800">
+        <p className="text-gray-300 text-lg animate-pulse">Carregando...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="relative bg-cover bg-center min-h-screen p-4 md:p-8"
-         style={{
-           backgroundImage: `url(${series.backdrop_path ? `https://image.tmdb.org/t/p/w1280${series.backdrop_path}` : 'https://via.placeholder.com/1280x720'})`,
-           backgroundColor: 'rgba(0, 0, 0, 0.75)',
-           backgroundBlendMode: 'darken',
-         }}
-    >
-      {/* Detalhes da Série para Mobile e Desktop */}
-      <header className="relative flex flex-col-reverse md:flex-row md:items-center md:gap-8 md:min-h-[60vh]">
-        <div className="md:w-2/3 flex flex-col items-start justify-center text-left">
-          <motion.h1
-            className="text-3xl md:text-5xl font-bold mb-4 text-white" 
-            style={{ fontFamily: "'Cinzel', serif" }}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 4.5 }}
-          >
-            {series.name}
-          </motion.h1>
-          <p className="text-sm md:text-lg mb-4 text-justify leading-relaxed text-white">{series.overview}</p>
-          <div className="flex items-center gap-4 mb-4">
-            <div className="flex items-center gap-2">
-              <CalendarToday className="text-lg text-white" />
-              <span className="text-sm md:text-base text-white">{new Date(series.first_air_date).toLocaleDateString()}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Star className="text-lg text-white" />
-              <span className="text-sm md:text-base text-white">{series.vote_average.toFixed(1)} ({series.vote_count} votos)</span>
-            </div>
-          </div>
-          <div className="flex flex-col md:flex-row md:gap-4">
-            <button className="flex items-center bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-transform transform hover:scale-105 shadow-lg">
-              <FaPlay className="text-lg mr-2" />
-              <span className="text-sm md:text-base">Assistir</span>
-            </button>
-            <button className="flex items-center bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-transform transform hover:scale-105 shadow-lg">
-              <span className="text-sm md:text-base">Mais Detalhes</span>
-            </button>
-          </div>
-        </div>
-        <div className="mb-4 md:mb-0 md:w-1/3 flex justify-center">
-          <img
-            src={series.poster_path ? `https://image.tmdb.org/t/p/w500${series.poster_path}` : 'https://via.placeholder.com/200x300'}
-            alt={series.name}
-            className="w-full rounded-lg shadow-lg"
-          />
-        </div>
-      </header>
-
-      {/* Elenco */}
-      <section className="my-8 text-center">
-        <motion.h2
-          className="text-xl md:text-2xl font-bold mb-4 text-white" 
-          style={{ fontFamily: "'Cinzel', serif" }}
-          initial={{ opacity: 0, y: -20 }}
+    <div className="min-h-screen bg-gray-900 text-gray-300">
+      <div
+        className="relative bg-cover bg-center h-[70vh] flex flex-col justify-end p-8"
+        style={{
+          backgroundImage: `url(${series.backdrop_path ? `https://image.tmdb.org/t/p/original${series.backdrop_path}` : 'https://via.placeholder.com/1280x720'})`,
+        }}
+      >
+        <div className="absolute inset-0 bg-black opacity-80"></div>
+        <motion.h1
+          className="text-5xl md:text-7xl font-bold text-red-500 drop-shadow-lg z-10"
+          initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 3.5 }}
+          transition={{ duration: 1 }}
         >
-          Elenco
-        </motion.h2>
-        <div className="flex flex-wrap justify-center gap-4">
-          {cast.length > 0 ? cast.slice(0, 5).map((member) => (
-            <div key={member.id} className="flex flex-col items-center">
-              <img
-                src={member.profile_path ? `https://image.tmdb.org/t/p/w500${member.profile_path}` : 'https://via.placeholder.com/100x100'}
-                alt={member.name}
-                className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-lg"
-              />
-              <div className="mt-2 text-center">
-                <h4 className="text-sm font-bold mb-1 text-white">{member.name}</h4>
-                <p className="text-xs text-gray-400">{member.character_name}</p>
+          {series.name}
+        </motion.h1>
+        <div className="flex space-x-4 mt-4 z-10">
+          <button className="flex items-center bg-red-600 py-2 px-4 rounded-lg hover:bg-red-700 transition">
+            <FaPlay className="mr-2" />
+            Assistir
+          </button>
+          {series.homepage && (
+            <a href={series.homepage} target="_blank" rel="noopener noreferrer" className="flex items-center border border-gray-600 py-2 px-4 rounded-lg hover:bg-gray-700 transition">
+              <FaLink className="mr-2" />
+              Homepage
+            </a>
+          )}
+        </div>
+      </div>
+
+      <div className="p-6 bg-gray-800 rounded-t-lg shadow-lg">
+        <motion.p
+          className="text-lg mb-4"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1 }}
+        >
+          {series.overview}
+        </motion.p>
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center">
+            <span className="bg-red-500 rounded-full p-2 text-white mr-2">
+              <FaHeart />
+            </span>
+            <span>{series.vote_average.toFixed(1)} ⭐ ({series.vote_count} votos)</span>
+          </div>
+          <span>{new Date(series.first_air_date).toLocaleDateString()}</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div><strong>Número de Temporadas:</strong> {series.number_of_seasons || 'N/A'}</div>
+          <div><strong>Número de Episódios:</strong> {series.number_of_episodes || 'N/A'}</div>
+          <div><strong>Idioma Original:</strong> {series.original_language || 'N/A'}</div>
+          <div><strong>Status:</strong> {series.status || 'N/A'}</div>
+          <div><strong>Popularidade:</strong> {series.popularity ? series.popularity.toFixed(2) : 'N/A'}</div>
+        </div>
+      </div>
+
+      <div className="p-4 bg-gray-800 mt-4 rounded-lg shadow-lg">
+        <h2 className="text-2xl font-bold mb-4">Temporadas e Episódios</h2>
+        {seasons.length > 0 ? (
+          seasons.map(season => (
+            <div key={season.id} className="mb-6">
+              <h3 className="text-xl font-semibold">Temporada {season.season_number}</h3>
+              <p className="text-sm">{season.overview || 'Sem descrição disponível.'}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                {episodesBySeason[season.id]?.map(episode => (
+                  <div key={episode.id} className="flex flex-col items-center border border-gray-700 p-4 rounded-lg bg-gray-700 transition-transform transform hover:scale-105">
+                    <img 
+                      src={episode.still_path ? `https://image.tmdb.org/t/p/w500${episode.still_path}` : 'https://via.placeholder.com/150'} 
+                      alt={episode.name} 
+                      className="w-full h-auto rounded mb-2 shadow-md" 
+                    />
+                    <h4 className="font-bold text-center">{episode.name}</h4>
+                    <p className="text-sm text-center text-gray-400">Duração: {episode.runtime ? `${episode.runtime} min` : 'N/A'}</p>
+                  </div>
+                ))}
               </div>
             </div>
-          )) : <p className="text-gray-400">Elenco não disponível</p>}
-        </div>
-      </section>
-
-      {/* Séries Recomendadas */}
-      <section>
-        <motion.h2
-          className="text-xl md:text-2xl font-bold mb-4 text-center text-white" 
-          style={{ fontFamily: "'Cinzel', serif" }}
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 2.5 }}
-        >
-          Séries Recomendadas
-        </motion.h2>
-        <div className="flex flex-wrap justify-center md:justify-start gap-4">
-          {recommendedSeries.length > 0 ? recommendedSeries.map((recSeries) => (
-            <div key={recSeries.id} className="w-40 rounded-lg overflow-hidden shadow-lg transition-transform transform hover:scale-105">
-              <img
-                src={recSeries.poster_path ? `https://image.tmdb.org/t/p/w500${recSeries.poster_path}` : 'https://via.placeholder.com/200x300'}
-                alt={recSeries.name}
-                className="w-full object-cover"
-              />
-              <div className="p-2">
-                <h4 className="text-sm font-bold text-white">{recSeries.name}</h4>
-                <p className="text-xs text-gray-400">{recSeries.first_air_date}</p>
-              </div>
-            </div>
-          )) : <p className="text-gray-400">Nenhuma recomendação disponível</p>}
-        </div>
-      </section>
+          ))
+        ) : (
+          <p>Carregando temporadas...</p>
+        )}
+      </div>
     </div>
   );
 };

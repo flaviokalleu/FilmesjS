@@ -1,4 +1,3 @@
-// src/models/cast.js
 module.exports = (sequelize, DataTypes) => {
   const Cast = sequelize.define('Cast', {
     tmdb_id: {
@@ -16,6 +15,12 @@ module.exports = (sequelize, DataTypes) => {
       through: 'MovieCast',
       foreignKey: 'cast_id',
       as: 'movies'  // Defina um alias para a associação
+    });
+
+    Cast.belongsToMany(models.TVShow, {
+      through: 'TVShowCast',
+      foreignKey: 'cast_id',
+      as: 'tvshows'  // Defina um alias para a associação
     });
   };
 
